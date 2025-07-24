@@ -5,7 +5,7 @@ import io
 import re
 import os
 
-# Ẩn thanh công cụ Streamlit và các biểu tượng "Running", "Share"
+# Hide Streamlit toolbar and status widgets
 st.markdown(
     """
     <style>
@@ -40,11 +40,12 @@ def split_name(fullname):
         return ' '.join(parts[:-1]), parts[-1]
 
 def extract_scores_from_pdf(file):
-    """Extract grade data from PDF, handling varying column sets."""
+    """Extract grade data from PDF, handling varying column sets including Ghi chú."""
     rows = []
     has_thuongky = False  # Flag for Điểm thường kỳ
     has_giua_ky = False   # Flag for Điểm giữa kỳ
     has_thuc_hanh = False # Flag for Điểm thực hành
+    has_ghi_chu = False   # Flag for Ghi chú
     
     with pdfplumber.open(file) as pdf:
         for page_num, page in enumerate(pdf.pages):
@@ -55,12 +56,12 @@ def extract_scores_from_pdf(file):
             
             lines = text.splitlines()
             for line in lines:
-                # Pattern 1: Full columns (with all scores)
-                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
-                # Pattern 2: No Điểm thực hành
-                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
-                # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ
-                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
+                # Pattern 1: Full columns (with all scores and optional Ghi chú)
+                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)(?:\s+(.+))?"
+                # Pattern 2: No Điểm thực hành (with optional Ghi chú)
+                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)(?:\s+(.+))?"
+                # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ (with optional Ghi chú)
+                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)(?:\s+(.+))?"
                 
                 # Try matching patterns in order of complexity
                 match = re.match(pattern_full, line)
@@ -68,16 +69,18 @@ def extract_scores_from_pdf(file):
                     has_thuongky = True
                     has_giua_ky = True
                     has_thuc_hanh = True
+                    has_ghi_chu = bool(match.group(11))  # Check if Ghi chú exists
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
                         fullname = match.group(3).strip()
+                        diem_gk = float(match.group(4))  # Điểm giữa kỳ
                         diem_thuongky = float(match.group(5))
-                        diem_gk = float(match.group(4))
                         diem_th = float(match.group(6))  # Điểm thực hành
                         diem_cuoi_ky = float(match.group(7))  # Điểm cuối kỳ
                         diem_tb = float(match.group(8))  # Điểm TB môn học
-                        diem_chu = match.group(10)  # Điểm chữ
+                        diem_chu = match.group(9)  # Điểm chữ
+                        ghi_chu = match.group(11) if match.group(11) else ""  # Ghi chú (optional)
                         
                         if diem_chu not in ['A', 'B', 'C', 'D']:
                             st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
@@ -85,7 +88,7 @@ def extract_scores_from_pdf(file):
                         
                         ho_dem, ten = split_name(fullname)
                         
-                        rows.append({
+                        row = {
                             "STT": stt,
                             "Mã số sinh viên": mssv,
                             "Họ đệm": ho_dem,
@@ -95,8 +98,10 @@ def extract_scores_from_pdf(file):
                             "Điểm thực hành": diem_th,
                             "Điểm cuối kỳ": diem_cuoi_ky,
                             "Điểm TB môn học": diem_tb,
-                            "Điểm chữ": diem_chu
-                        })
+                            "Điểm chữ": diem_chu,
+                            "Ghi chú": ghi_chu
+                        }
+                        rows.append(row)
                     except Exception as e:
                         st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
                         continue
@@ -105,6 +110,7 @@ def extract_scores_from_pdf(file):
                     if match:
                         has_thuongky = True
                         has_giua_ky = True
+                        has_ghi_chu = bool(match.group(10))  # Check if Ghi chú exists
                         try:
                             stt = int(match.group(1))
                             mssv = match.group(2)
@@ -113,7 +119,8 @@ def extract_scores_from_pdf(file):
                             diem_gk = float(match.group(5))
                             diem_cuoi_ky = float(match.group(6))  # Điểm cuối kỳ
                             diem_tb = float(match.group(7))  # Điểm TB môn học
-                            diem_chu = match.group(9)  # Điểm chữ
+                            diem_chu = match.group(8)  # Điểm chữ
+                            ghi_chu = match.group(10) if match.group(10) else ""  # Ghi chú (optional)
                             
                             if diem_chu not in ['A', 'B', 'C', 'D']:
                                 st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
@@ -121,7 +128,7 @@ def extract_scores_from_pdf(file):
                             
                             ho_dem, ten = split_name(fullname)
                             
-                            rows.append({
+                            row = {
                                 "STT": stt,
                                 "Mã số sinh viên": mssv,
                                 "Họ đệm": ho_dem,
@@ -130,21 +137,25 @@ def extract_scores_from_pdf(file):
                                 "Điểm giữa kỳ": diem_gk,
                                 "Điểm cuối kỳ": diem_cuoi_ky,
                                 "Điểm TB môn học": diem_tb,
-                                "Điểm chữ": diem_chu
-                            })
+                                "Điểm chữ": diem_chu,
+                                "Ghi chú": ghi_chu
+                            }
+                            rows.append(row)
                         except Exception as e:
                             st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
                             continue
                     else:
                         match = re.match(pattern_minimal, line)
                         if match:
+                            has_ghi_chu = bool(match.group(8))  # Check if Ghi chú exists
                             try:
                                 stt = int(match.group(1))
                                 mssv = match.group(2)
                                 fullname = match.group(3).strip()
                                 diem_cuoi_ky = float(match.group(4))  # Điểm cuối kỳ
                                 diem_tb = float(match.group(5))  # Điểm TB môn học
-                                diem_chu = match.group(7)  # Điểm chữ
+                                diem_chu = match.group(6)  # Điểm chữ
+                                ghi_chu = match.group(8) if match.group(8) else ""  # Ghi chú (optional)
                                 
                                 if diem_chu not in ['A', 'B', 'C', 'D']:
                                     st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
@@ -152,15 +163,17 @@ def extract_scores_from_pdf(file):
                                 
                                 ho_dem, ten = split_name(fullname)
                                 
-                                rows.append({
+                                row = {
                                     "STT": stt,
                                     "Mã số sinh viên": mssv,
                                     "Họ đệm": ho_dem,
                                     "Tên": ten,
                                     "Điểm cuối kỳ": diem_cuoi_ky,
                                     "Điểm TB môn học": diem_tb,
-                                    "Điểm chữ": diem_chu
-                                })
+                                    "Điểm chữ": diem_chu,
+                                    "Ghi chú": ghi_chu
+                                }
+                                rows.append(row)
                             except Exception as e:
                                 st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
                                 continue
@@ -173,6 +186,8 @@ def extract_scores_from_pdf(file):
         df = df.drop(columns=["Điểm giữa kỳ"])
     if not has_thuongky and "Điểm thường kỳ" in df.columns:
         df = df.drop(columns=["Điểm thường kỳ"])
+    if not has_ghi_chu and "Ghi chú" in df.columns:
+        df = df.drop(columns=["Ghi chú"])
     return df
 
 # File upload interface
