@@ -55,12 +55,12 @@ def extract_scores_from_pdf(file):
             
             lines = text.splitlines()
             for line in lines:
-                # Pattern 1: Full columns (with all scores)
-                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
-                # Pattern 2: No Điểm thực hành
-                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
-                # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ
-                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
+                # Pattern 1: Full columns (with all scores and optional note)
+                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s*(.+)?$"
+                # Pattern 2: No Điểm thực hành with optional note
+                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s*(.+)?$"
+                # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ with optional note
+                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s*(.+)?$"
                 
                 # Try matching patterns in order of complexity
                 match = re.match(pattern_full, line)
@@ -78,8 +78,9 @@ def extract_scores_from_pdf(file):
                         diem_cuoi_ky = float(match.group(7))  # Điểm cuối kỳ
                         diem_tb = float(match.group(8))  # Điểm TB môn học
                         diem_chu = match.group(10)  # Điểm chữ
+                        ghi_chu = match.group(11).strip() if match.group(11) else ''  # Ghi chú (nếu có)
                         
-                        if diem_chu not in ['A', 'B', 'C', 'D']:
+                        if diem_chu not in ['A', 'B', 'C', 'D', 'F']:
                             st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
                             continue
                         
@@ -95,7 +96,8 @@ def extract_scores_from_pdf(file):
                             "Điểm thực hành": diem_th,
                             "Điểm cuối kỳ": diem_cuoi_ky,
                             "Điểm TB môn học": diem_tb,
-                            "Điểm chữ": diem_chu
+                            "Điểm chữ": diem_chu,
+                            "Ghi chú": ghi_chu
                         })
                     except Exception as e:
                         st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
@@ -114,8 +116,9 @@ def extract_scores_from_pdf(file):
                             diem_cuoi_ky = float(match.group(6))  # Điểm cuối kỳ
                             diem_tb = float(match.group(7))  # Điểm TB môn học
                             diem_chu = match.group(9)  # Điểm chữ
+                            ghi_chu = match.group(10).strip() if match.group(10) else ''  # Ghi chú (nếu có)
                             
-                            if diem_chu not in ['A', 'B', 'C', 'D']:
+                            if diem_chu not in ['A', 'B', 'C', 'D', 'F']:
                                 st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
                                 continue
                             
@@ -130,7 +133,8 @@ def extract_scores_from_pdf(file):
                                 "Điểm giữa kỳ": diem_gk,
                                 "Điểm cuối kỳ": diem_cuoi_ky,
                                 "Điểm TB môn học": diem_tb,
-                                "Điểm chữ": diem_chu
+                                "Điểm chữ": diem_chu,
+                                "Ghi chú": ghi_chu
                             })
                         except Exception as e:
                             st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
@@ -145,8 +149,9 @@ def extract_scores_from_pdf(file):
                                 diem_cuoi_ky = float(match.group(4))  # Điểm cuối kỳ
                                 diem_tb = float(match.group(5))  # Điểm TB môn học
                                 diem_chu = match.group(7)  # Điểm chữ
+                                ghi_chu = match.group(8).strip() if match.group(8) else ''  # Ghi chú (nếu có)
                                 
-                                if diem_chu not in ['A', 'B', 'C', 'D']:
+                                if diem_chu not in ['A', 'B', 'C', 'D', 'F']:
                                     st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
                                     continue
                                 
@@ -159,7 +164,8 @@ def extract_scores_from_pdf(file):
                                     "Tên": ten,
                                     "Điểm cuối kỳ": diem_cuoi_ky,
                                     "Điểm TB môn học": diem_tb,
-                                    "Điểm chữ": diem_chu
+                                    "Điểm chữ": diem_chu,
+                                    "Ghi chú": ghi_chu
                                 })
                             except Exception as e:
                                 st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
@@ -190,6 +196,14 @@ if uploaded_file is not None:
         if not df.empty:
             st.success("✅ Đã trích xuất thành công!")
             st.dataframe(df, use_container_width=True)
+            st.info(f"Tổng số dòng trích xuất: {len(df)}")
+            # Hiển thị các dòng có ghi chú "Học lại"
+            if "Ghi chú" in df.columns:
+                hoc_lai_rows = df[df["Ghi chú"].str.contains("Học lại", case=False, na=False)]
+                st.info(f"Số dòng có ghi chú 'Học lại': {len(hoc_lai_rows)}")
+                if not hoc_lai_rows.empty:
+                    st.write("Các dòng có ghi chú 'Học lại':")
+                    st.dataframe(hoc_lai_rows)
             
             # Download button for Excel, using the uploaded file's name
             output = io.BytesIO()
