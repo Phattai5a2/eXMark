@@ -54,9 +54,9 @@ def extract_scores_from_pdf(file):
                         stt = int(match.group(1))
                         mssv = match.group(2)
                         fullname = match.group(3).strip()
-                        diem_thuongky = float(match.group(4))
-                        diem_gk = float(match.group(6))
-                        diem_th = float(match.group(5))  # Điểm thực hành
+                        diem_thuongky = float(match.group(5))
+                        diem_gk = float(match.group(4))
+                        diem_th = float(match.group(6))  # Điểm thực hành
                         diem_cuoi_ky = float(match.group(7))  # Điểm cuối kỳ
                         diem_tb = float(match.group(8))  # Điểm TB môn học
                         diem_chu = match.group(10)  # Điểm chữ
