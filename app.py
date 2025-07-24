@@ -4,6 +4,23 @@ import pandas as pd
 import io
 import re
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stToolbar"] {
+        visibility: hidden;
+    }
+    [data-testid="stStatusWidget"] {
+        visibility: hidden;
+    }
+    [data-testid="stDecoration"] {
+        visibility: hidden;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 st.set_page_config(page_title="Trích xuất bảng điểm PDF", layout="wide")
 st.title("📄 Trích xuất bảng điểm từ file PDF")
 st.markdown("Tải lên file PDF chứa bảng điểm để trích xuất và lưu ra Excel.")
