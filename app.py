@@ -3,23 +3,7 @@ import pdfplumber
 import pandas as pd
 import io
 import re
-
-st.markdown(
-    """
-    <style>
-    [data-testid="stToolbar"] {
-        visibility: hidden;
-    }
-    [data-testid="stStatusWidget"] {
-        visibility: hidden;
-    }
-    [data-testid="stDecoration"] {
-        visibility: hidden;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+import os
 
 st.set_page_config(page_title="Trích xuất bảng điểm PDF", layout="wide")
 st.title("📄 Trích xuất bảng điểm từ file PDF")
@@ -54,13 +38,10 @@ def extract_scores_from_pdf(file):
             lines = text.splitlines()
             for line in lines:
                 # Pattern 1: Full columns (with all scores)
-                # Example: "1 2200009670 Mai Vũ Bình An 8.00 6.50 V 8.00 6.30 7.12 3.00 B Khá"
                 pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
                 # Pattern 2: No Điểm thực hành
-                # Example: "1 2200009670 Mai Vũ Bình An 8.00 6.50 V 6.30 7.12 3.00 B Khá"
                 pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
                 # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ
-                # Example: "1 2200009670 Mai Vũ Bình An V 6.30 7.12 3.00 B Khá"
                 pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
                 
                 # Try matching patterns in order of complexity
@@ -177,7 +158,7 @@ def extract_scores_from_pdf(file):
     return df
 
 # File upload interface
-uploaded_file = st.file_uploader("📌 Tải file PDF bảng điểm:", type="pdf")
+uploaded_file = st.file_uploader("📌 Tải file PDF bảng điểm:", type="pdf", accept_multiple_files=False, help="File PDF nên dưới 200MB.")
 if uploaded_file is not None:
     try:
         df = extract_scores_from_pdf(uploaded_file)
@@ -185,15 +166,19 @@ if uploaded_file is not None:
             st.success("✅ Đã trích xuất thành công!")
             st.dataframe(df, use_container_width=True)
             
-            # Download button for Excel
+            # Download button for Excel, using the uploaded file's name
             output = io.BytesIO()
             df.to_excel(output, index=False, engine='openpyxl')
             output.seek(0)
             
+            # Get the uploaded file's name and replace .pdf with .xlsx
+            file_name = uploaded_file.name
+            excel_file_name = os.path.splitext(file_name)[0] + ".xlsx"
+            
             st.download_button(
                 label="📥 Tải xuống Excel",
                 data=output,
-                file_name="bang_diem_trich_xuat.xlsx",
+                file_name=excel_file_name,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         else:
