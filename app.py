@@ -2,7 +2,6 @@ import streamlit as st
 import pdfplumber
 import pandas as pd
 import io
-import re
 import os
 
 # Ẩn thanh công cụ Streamlit
@@ -26,7 +25,7 @@ def normalize_text(text):
     if not text:
         return text
     text = text.replace('Nguyêa', 'Nguyễn').replace('Hau', 'Hậu').replace('Ken', 'Kém')
-    text = text.replace('Hoc lai', 'Học lại').replace('Hoc lai', 'Học lại')
+    text = text.replace('Hoc lai', 'Học lại').replace('Yàn', 'Yến')
     return text.strip()
 
 def split_name(fullname):
@@ -55,19 +54,22 @@ def extract_scores_from_pdf(file):
                 continue
             
             for table in tables:
-                for row in table[1:]:  # Bỏ qua dòng tiêu đề
-                    if len(row) < 8:  # Kiểm tra số cột tối thiểu
+                for row in table:
+                    # Bỏ qua dòng tiêu đề hoặc dòng tổng cộng
+                    if not row[0] or 'Mã số' in str(row[1]) or 'Tổng cộng' in str(row[1]):
+                        continue
+                    if len(row) < 8:
                         st.warning(f"Dòng không đủ cột trên trang {page_num + 1}: {row}")
                         continue
                     try:
                         stt = int(row[0]) if row[0] else None
                         mssv = row[1] if row[1] else ''
                         fullname = normalize_text(row[2]) if row[2] else ''
-                        diem_gk = float(row[3]) if row[3] else 0.0
-                        diem_thuongky = float(row[4]) if row[4] else 0.0
-                        diem_th = float(row[5]) if row[5] else None
-                        diem_cuoi_ky = float(row[6]) if row[6] else 0.0
-                        diem_tb = float(row[7]) if row[7] else 0.0
+                        diem_gk = float(row[3]) if row[3] and row[3].replace('.', '').isdigit() else 0.0
+                        diem_thuongky = float(row[4]) if row[4] and row[4].replace('.', '').isdigit() else 0.0
+                        diem_th = float(row[5]) if row[5] and row[5].replace('.', '').isdigit() else None
+                        diem_cuoi_ky = float(row[6]) if row[6] and row[6].replace('.', '').isdigit() else 0.0
+                        diem_tb = float(row[7]) if row[7] and row[7].replace('.', '').isdigit() else 0.0
                         diem_chu = row[8] if row[8] else ''
                         ghi_chu = normalize_text(row[9]) if len(row) > 9 else ''
                         
@@ -95,7 +97,7 @@ def extract_scores_from_pdf(file):
                         has_giua_ky = True
                         rows.append(row_data)
                     except Exception as e:
-                        st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {row}. Lỗi: {str(e)}")
+                        st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {row}. Lỗi: {str(e)}. Giá trị cột: {row[3:8]}")
                         continue
     
     df = pd.DataFrame(rows)
@@ -119,6 +121,9 @@ if uploaded_file is not None:
             if "Ghi chú" in df.columns:
                 hoc_lai_rows = df[df["Ghi chú"].str.contains("Học lại", case=False, na=False)]
                 st.info(f"Số dòng có ghi chú 'Học lại': {len(hoc_lai_rows)}")
+                if not hoc_lai_rows.empty:
+                    st.write("Các dòng có ghi chú 'Học lại':")
+                    st.dataframe(hoc_lai_rows)
             
             # Download button for Excel
             output = io.BytesIO()
