@@ -52,8 +52,6 @@ def extract_scores_from_pdf(file):
             # Try extracting text first
             text = page.extract_text()
             if text and text.strip():
-                st.write(f"**Raw text from page {page_num + 1}:**")
-                st.text(text)  # Display raw text for debugging
                 lines = text.splitlines()
                 for line in lines:
                     # Skip empty or header-like lines
@@ -181,11 +179,7 @@ def extract_scores_from_pdf(file):
             # Try extracting tables as a fallback
             tables = page.extract_tables()
             if tables:
-                st.write(f"**Found tables on page {page_num + 1}:**")
                 for table_idx, table in enumerate(tables):
-                    st.write(f"Table {table_idx + 1}:")
-                    st.write(table)  # Display raw table for debugging
-                    # Process table rows (assuming table has a header)
                     for row in table[1:]:  # Skip header row
                         if not row or len(row) < 6:  # Minimum columns for minimal pattern
                             continue
@@ -244,8 +238,6 @@ def extract_scores_from_pdf(file):
                         except Exception as e:
                             st.warning(f"Lỗi xử lý dòng bảng trên trang {page_num + 1}: {row}. Lỗi: {str(e)}")
                             continue
-            else:
-                st.warning(f"Không tìm thấy bảng trên trang {page_num + 1}.")
     
     df = pd.DataFrame(rows)
     # Drop optional columns if they were not detected
