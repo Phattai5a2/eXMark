@@ -173,6 +173,13 @@ def extract_scores_from_pdf(file):
         df = df.drop(columns=["Điểm giữa kỳ"])
     if not has_thuongky and "Điểm thường kỳ" in df.columns:
         df = df.drop(columns=["Điểm thường kỳ"])
+    # Swap column order: Điểm giữa kỳ before Điểm thường kỳ
+    if "Điểm giữa kỳ" in df.columns and "Điểm thường kỳ" in df.columns:
+        columns = df.columns.tolist()
+        giua_ky_idx = columns.index("Điểm giữa kỳ")
+        thuong_ky_idx = columns.index("Điểm thường kỳ")
+        columns[giua_ky_idx], columns[thuong_ky_idx] = columns[thuong_ky_idx], columns[giua_ky_idx]
+        df = df[columns]
     return df
 
 # File upload interface
