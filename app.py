@@ -169,13 +169,6 @@ def extract_scores_from_pdf(file):
     # Drop optional columns if they were not detected
     if not has_thuc_hanh and "Điểm thực hành" in df.columns:
         df = df.drop(columns=["Điểm thực hành"])
-        # Swap column names for Điểm giữa kỳ and Điểm thường kỳ
-        if "Điểm giữa kỳ" in df.columns and "Điểm thường kỳ" in df.columns:
-            df = df.rename(columns={
-                "Điểm giữa kỳ": "Điểm thường kỳ_temp",
-                "Điểm thường kỳ": "Điểm giữa kỳ",
-                "Điểm thường kỳ_temp": "Điểm thường kỳ"
-            })
     if not has_giua_ky and "Điểm giữa kỳ" in df.columns:
         df = df.drop(columns=["Điểm giữa kỳ"])
     if not has_thuongky and "Điểm thường kỳ" in df.columns:
