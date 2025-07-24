@@ -56,11 +56,14 @@ def extract_scores_from_pdf(file):
             lines = text.splitlines()
             for line in lines:
                 # Pattern 1: Full columns (with all scores)
-                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
-                # Pattern 2: No Điểm thực hành
-                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
-                # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ
-                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)"
+                # Pattern 1: Full pattern with Xếp loại and Ghi chú
+                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)\s*(\S*)\s*(\S*)"
+
+                # Pattern 2: No Điểm thực hành with Xếp loại and Ghi chú
+                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)\s*(\S*)\s*(\S*)"
+
+                # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ with Xếp loại and Ghi chú
+                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)\s*(\S*)\s*(\S*)"
                 
                 # Try matching patterns in order of complexity
                 match = re.match(pattern_full, line)
