@@ -50,18 +50,20 @@ def split_name(fullname):
 def extract_scores_from_pdf(file):
     """Extract only Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ from PDF."""
     rows = []
+    unmatched_lines = []
     
     with pdfplumber.open(file) as pdf:
         for page_num, page in enumerate(pdf.pages):
             text = page.extract_text()
             if not text:
-                st.warning(f"Không tìm thấy văn bản trên trang {page_num + 1}.")
+                st.warning(f"Không tìm thấy văn bản trên trang {page_num + 1}. Có thể cần OCR.")
                 continue
             
             lines = text.splitlines()
             for line in lines:
-                # Pattern: Extract STT, MSSV, Fullname, Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ
-                pattern = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+.*$"
+                # Pattern: Capture STT, MSSV, Fullname, Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ
+                # Make 'V' separator optional
+                pattern = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+.*$"
                 
                 match = re.match(pattern, line)
                 if match:
@@ -88,9 +90,18 @@ def extract_scores_from_pdf(file):
                         })
                     except Exception as e:
                         st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
-                        continue
+                        unmatched_lines.append(f"Page {page_num + 1}: {line}")
                 else:
-                    st.warning(f"Dòng không khớp trên trang {page_num + 1}: {line}")
+                    unmatched_lines.append(f"Page {page_num + 1}: {line}")
+    
+    # Log unmatched lines to Streamlit
+    if unmatched_lines:
+        st.warning("Các dòng không khớp:")
+        for ul in unmatched_lines:
+            st.text(ul)
+        # Optionally save unmatched lines to a file for debugging
+        with open("unmatched_lines.txt", "w", encoding="utf-8") as f:
+            f.write("\n".join(unmatched_lines))
     
     df = pd.DataFrame(rows)
     return df
@@ -120,6 +131,6 @@ if uploaded_file is not None:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         else:
-            st.warning("⚠️ Không trích xuất được dữ liệu từ file PDF.")
+            st.error("⚠️ Không trích xuất được dữ liệu từ file PDF. Kiểm tra các dòng không khớp hoặc thử OCR.")
     except Exception as e:
         st.error(f"Lỗi xử lý file PDF: {str(e)}")
