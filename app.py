@@ -40,11 +40,10 @@ def split_name(fullname):
         return ' '.join(parts[:-1]), parts[-1]
 
 def extract_scores_from_pdf(file):
-    """Extract grade data from PDF, handling varying column sets."""
     rows = []
-    has_thuongky = False  # Flag for Điểm thường kỳ
-    has_giua_ky = False   # Flag for Điểm giữa kỳ
-    has_thuc_hanh = False # Flag for Điểm thực hành
+    has_thuongky = False
+    has_giua_ky = False
+    has_thuc_hanh = False
     
     with pdfplumber.open(file) as pdf:
         for page_num, page in enumerate(pdf.pages):
@@ -55,128 +54,81 @@ def extract_scores_from_pdf(file):
             
             lines = text.splitlines()
             for line in lines:
-                # Pattern 1: Full columns (with all scores)
-                # Pattern 1: Full pattern with Xếp loại and Ghi chú
-                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)\s*(\S*)\s*(\S*)"
+                line = line.strip()
 
-                # Pattern 2: No Điểm thực hành with Xếp loại and Ghi chú
-                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)\s*(\S*)\s*(\S*)"
+                # Bỏ qua các dòng không chứa điểm
+                if not re.search(r"\d+\.\d\d", line):
+                    continue
 
-                # Pattern 3: Only Điểm cuối kỳ, Điểm TB, Điểm chữ with Xếp loại and Ghi chú
-                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+V\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+(\d+\.\d\d)\s+([ABCD])\s+(\S+)\s*(\S*)\s*(\S*)"
+                # Tách dòng theo khoảng trắng nhiều lần (2+)
+                parts = re.split(r'\s{2,}', line)
+                if len(parts) < 7:
+                    continue  # Không đủ dữ liệu
                 
-                # Try matching patterns in order of complexity
-                match = re.match(pattern_full, line)
-                if match:
-                    has_thuongky = True
-                    has_giua_ky = True
-                    has_thuc_hanh = True
-                    try:
-                        stt = int(match.group(1))
-                        mssv = match.group(2)
-                        fullname = match.group(3).strip()
-                        diem_thuongky = float(match.group(5))
-                        diem_gk = float(match.group(4))
-                        diem_th = float(match.group(6))  # Điểm thực hành
-                        diem_cuoi_ky = float(match.group(7))  # Điểm cuối kỳ
-                        diem_tb = float(match.group(8))  # Điểm TB môn học
-                        diem_chu = match.group(10)  # Điểm chữ
-                        
-                        if diem_chu not in ['A', 'B', 'C', 'D']:
-                            st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
-                            continue
-                        
-                        ho_dem, ten = split_name(fullname)
-                        
-                        rows.append({
-                            "STT": stt,
-                            "Mã số sinh viên": mssv,
-                            "Họ đệm": ho_dem,
-                            "Tên": ten,
-                            "Điểm thường kỳ": diem_thuongky,
-                            "Điểm giữa kỳ": diem_gk,
-                            "Điểm thực hành": diem_th,
-                            "Điểm cuối kỳ": diem_cuoi_ky,
-                            "Điểm TB môn học": diem_tb,
-                            "Điểm chữ": diem_chu
-                        })
-                    except Exception as e:
-                        st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
-                        continue
-                else:
-                    match = re.match(pattern_no_th, line)
-                    if match:
+                try:
+                    stt = int(parts[0])
+                    mssv = parts[1]
+                    fullname = parts[2].strip()
+                    scores = [p for p in parts[3:] if re.match(r'^\d+\.\d\d$', p)]
+                    diem_chu = next((p for p in parts if re.match(r'^[ABCDF][+-]?$', p)), None)
+                    ho_dem, ten = split_name(fullname)
+
+                    # Khởi tạo row
+                    row = {
+                        "STT": stt,
+                        "Mã số sinh viên": mssv,
+                        "Họ đệm": ho_dem,
+                        "Tên": ten,
+                        "Điểm chữ": diem_chu
+                    }
+
+                    # Gán điểm theo độ dài
+                    if len(scores) == 5:
                         has_thuongky = True
                         has_giua_ky = True
-                        try:
-                            stt = int(match.group(1))
-                            mssv = match.group(2)
-                            fullname = match.group(3).strip()
-                            diem_thuongky = float(match.group(4))
-                            diem_gk = float(match.group(5))
-                            diem_cuoi_ky = float(match.group(6))  # Điểm cuối kỳ
-                            diem_tb = float(match.group(7))  # Điểm TB môn học
-                            diem_chu = match.group(9)  # Điểm chữ
-                            
-                            if diem_chu not in ['A', 'B', 'C', 'D']:
-                                st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
-                                continue
-                            
-                            ho_dem, ten = split_name(fullname)
-                            
-                            rows.append({
-                                "STT": stt,
-                                "Mã số sinh viên": mssv,
-                                "Họ đệm": ho_dem,
-                                "Tên": ten,
-                                "Điểm thường kỳ": diem_thuongky,
-                                "Điểm giữa kỳ": diem_gk,
-                                "Điểm cuối kỳ": diem_cuoi_ky,
-                                "Điểm TB môn học": diem_tb,
-                                "Điểm chữ": diem_chu
-                            })
-                        except Exception as e:
-                            st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
-                            continue
+                        has_thuc_hanh = True
+                        row.update({
+                            "Điểm giữa kỳ": float(scores[0]),
+                            "Điểm thường kỳ": float(scores[1]),
+                            "Điểm thực hành": float(scores[2]),
+                            "Điểm cuối kỳ": float(scores[3]),
+                            "Điểm TB môn học": float(scores[4]),
+                        })
+                    elif len(scores) == 4:
+                        has_thuongky = True
+                        has_giua_ky = True
+                        row.update({
+                            "Điểm giữa kỳ": float(scores[0]),
+                            "Điểm thường kỳ": float(scores[1]),
+                            "Điểm cuối kỳ": float(scores[2]),
+                            "Điểm TB môn học": float(scores[3]),
+                        })
+                    elif len(scores) == 3:
+                        row.update({
+                            "Điểm cuối kỳ": float(scores[0]),
+                            "Điểm TB môn học": float(scores[1]),
+                        })
                     else:
-                        match = re.match(pattern_minimal, line)
-                        if match:
-                            try:
-                                stt = int(match.group(1))
-                                mssv = match.group(2)
-                                fullname = match.group(3).strip()
-                                diem_cuoi_ky = float(match.group(4))  # Điểm cuối kỳ
-                                diem_tb = float(match.group(5))  # Điểm TB môn học
-                                diem_chu = match.group(7)  # Điểm chữ
-                                
-                                if diem_chu not in ['A', 'B', 'C', 'D']:
-                                    st.warning(f"Điểm chữ không hợp lệ trên dòng: {line}")
-                                    continue
-                                
-                                ho_dem, ten = split_name(fullname)
-                                
-                                rows.append({
-                                    "STT": stt,
-                                    "Mã số sinh viên": mssv,
-                                    "Họ đệm": ho_dem,
-                                    "Tên": ten,
-                                    "Điểm cuối kỳ": diem_cuoi_ky,
-                                    "Điểm TB môn học": diem_tb,
-                                    "Điểm chữ": diem_chu
-                                })
-                            except Exception as e:
-                                st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
-                                continue
-    
+                        st.warning(f"Dòng không xác định được số điểm: {line}")
+                        continue
+
+                    rows.append(row)
+                except Exception as e:
+                    st.warning(f"Lỗi xử lý dòng: {line}. Lỗi: {str(e)}")
+                    continue
+
     df = pd.DataFrame(rows)
-    # Drop optional columns if they were not detected
+
+    # Drop optional columns if not detected
     if not has_thuc_hanh and "Điểm thực hành" in df.columns:
-        df = df.drop(columns=["Điểm thực hành"])
+        df.drop(columns=["Điểm thực hành"], inplace=True)
     if not has_giua_ky and "Điểm giữa kỳ" in df.columns:
-        df = df.drop(columns=["Điểm giữa kỳ"])
+        df.drop(columns=["Điểm giữa kỳ"], inplace=True)
     if not has_thuongky and "Điểm thường kỳ" in df.columns:
-        df = df.drop(columns=["Điểm thường kỳ"])
+        df.drop(columns=["Điểm thường kỳ"], inplace=True)
+    
     return df
+
 
 # File upload interface
 uploaded_file = st.file_uploader("📌 Tải file PDF bảng điểm:", type="pdf", accept_multiple_files=False, help="File PDF nên dưới 200MB.")
