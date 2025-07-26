@@ -48,7 +48,7 @@ def split_name(fullname):
         return ' '.join(parts[:-1]), parts[-1]
 
 def extract_scores_from_pdf(file):
-    """Extract score columns from PDF, adapting to available columns."""
+    """Extract score columns from PDF based on three conditions."""
     rows = []
     unmatched_lines = []
     has_thuongky = False
@@ -59,20 +59,19 @@ def extract_scores_from_pdf(file):
         for page_num, page in enumerate(pdf.pages):
             text = page.extract_text()
             if not text:
-                # Log empty text to file instead of displaying warning
                 with open("unmatched_lines.txt", "a", encoding="utf-8") as f:
                     f.write(f"Page {page_num + 1}: No text extracted\n")
                 continue
             
             lines = text.splitlines()
             for line in lines:
-                # Pattern 1: Full columns (Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ)
+                # Pattern 1: All columns (Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ)
                 pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+.*$"
                 
                 # Pattern 2: No Điểm thực hành (Điểm giữa kỳ, Điểm thường kỳ, Điểm cuối kỳ)
                 pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+.*$"
                 
-                # Pattern 3: Only Điểm cuối kỳ
+                # Pattern 3: Only Điểm cuối kỳ (no Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành)
                 pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+(?:V\s+)?(\d+\.\d{1,2})\s+.*$"
                 
                 # Try matching patterns in order of complexity
