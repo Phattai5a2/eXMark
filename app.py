@@ -161,12 +161,19 @@ def extract_scores_from_pdf(file):
         with open("unmatched_lines.txt", "w", encoding="utf-8") as f:
             f.write("\n".join(unmatched_lines))
     
-    df = pd.DataFrame(rows)
-    # Remove columns with no non-null values
-    score_columns = ["Điểm giữa kỳ", "Điểm thường kỳ", "Điểm thực hành"]
-    for col in score_columns:
-        if col in df.columns and df[col].isna().all():
-            df = df.drop(columns=[col])
+    # Define base columns
+    columns = ["STT", "Mã số sinh viên", "Họ đệm", "Tên"]
+    # Add score columns based on what was detected
+    if has_giua_ky:
+        columns.append("Điểm giữa kỳ")
+    if has_thuongky:
+        columns.append("Điểm thường kỳ")
+    if has_thuc_hanh:
+        columns.append("Điểm thực hành")
+    columns.append("Điểm cuối kỳ")  # Always include Điểm cuối kỳ
+    
+    # Create DataFrame with only the relevant columns
+    df = pd.DataFrame(rows, columns=columns)
     
     return df
 
