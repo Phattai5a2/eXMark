@@ -51,6 +51,9 @@ def extract_scores_from_pdf(file):
     """Extract score columns from PDF based on three conditions."""
     rows = []
     unmatched_lines = []
+    has_giua_ky = False
+    has_thuongky = False
+    has_thuc_hanh = False
     
     with pdfplumber.open(file) as pdf:
         for page_num, page in enumerate(pdf.pages):
@@ -95,12 +98,15 @@ def extract_scores_from_pdf(file):
                             "Điểm thực hành": diem_th,
                             "Điểm cuối kỳ": diem_cuoi_ky
                         })
+                        has_giua_ky = True
+                        has_thuongky = True
+                        has_thuc_hanh = True
                     except Exception as e:
                         unmatched_lines.append(f"Page {page_num + 1}: {line} (Error: {str(e)})")
                     continue
                 
                 match = re.match(pattern_no_th, line)
-                if match:
+                if match and not re.match(pattern_full, line):  # Ensure pattern_full doesn't match
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
@@ -120,12 +126,14 @@ def extract_scores_from_pdf(file):
                             "Điểm thường kỳ": diem_thuongky,
                             "Điểm cuối kỳ": diem_cuoi_ky
                         })
+                        has_giua_ky = True
+                        has_thuongky = True
                     except Exception as e:
                         unmatched_lines.append(f"Page {page_num + 1}: {line} (Error: {str(e)})")
                     continue
                 
                 match = re.match(pattern_minimal, line)
-                if match:
+                if match and not (re.match(pattern_full, line) or re.match(pattern_no_th, line)):  # Ensure neither pattern_full nor pattern_no_th matches
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
