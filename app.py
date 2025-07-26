@@ -148,14 +148,18 @@ def extract_scores_from_pdf(file):
                 # Log unmatched lines to file
                 unmatched_lines.append(f"Page {page_num + 1}: {line}")
     
+    # Save unmatched lines to file for debugging
+    if unmatched_lines:
+        with open("unmatched_lines.txt", "w", encoding="utf-8") as f:
+            f.write("\n".join(unmatched_lines))
+    
     df = pd.DataFrame(rows)
-    # Drop optional columns if they were not detected
-    if not has_thuc_hanh and "Điểm thực hành" in df.columns:
-        df = df.drop(columns=["Điểm thực hành"])
-    if not has_giua_ky and "Điểm giữa kỳ" in df.columns:
-        df = df.drop(columns=["Điểm giữa kỳ"])
-    if not has_thuongky and "Điểm thường kỳ" in df.columns:
-        df = df.drop(columns=["Điểm thường kỳ"])
+    # Remove columns with no non-null values
+    score_columns = ["Điểm giữa kỳ", "Điểm thường kỳ", "Điểm thực hành"]
+    for col in score_columns:
+        if col in df.columns and df[col].isna().all():
+            df = df.drop(columns=[col])
+    
     return df
 
 # File upload interface
