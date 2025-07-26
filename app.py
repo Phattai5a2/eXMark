@@ -95,13 +95,6 @@ def extract_scores_from_pdf(file):
                     unmatched_lines.append(f"Page {page_num + 1}: {line}")
     
     # Log unmatched lines to Streamlit
-    if unmatched_lines:
-        st.warning("Các dòng không khớp:")
-        for ul in unmatched_lines:
-            st.text(ul)
-        # Optionally save unmatched lines to a file for debugging
-        with open("unmatched_lines.txt", "w", encoding="utf-8") as f:
-            f.write("\n".join(unmatched_lines))
     
     df = pd.DataFrame(rows)
     return df
