@@ -41,92 +41,74 @@ def split_name(fullname):
 
 def extract_scores_from_pdf(file):
     rows = []
-    has_thuongky = False
-    has_giua_ky = False
-    has_thuc_hanh = False
-    
     with pdfplumber.open(file) as pdf:
         for page_num, page in enumerate(pdf.pages):
             text = page.extract_text()
             if not text:
-                st.warning(f"Không tìm thấy văn bản trên trang {page_num + 1}.")
                 continue
-            
             lines = text.splitlines()
             for line in lines:
                 line = line.strip()
 
-                # Bỏ qua các dòng không chứa điểm
-                if not re.search(r"\d+\.\d\d", line):
+                # Bỏ qua dòng tiêu đề hoặc chứa từ khóa không phải dữ liệu
+                if re.search(r"STT|Họ đệm|Điểm|Hệ số|Mã số sinh viên|Xếp loại|Ghi chú", line, re.IGNORECASE):
                     continue
 
-                # Tách dòng theo khoảng trắng nhiều lần (2+)
+                # Tách theo khoảng trắng lớn (dấu hiệu phân cột)
                 parts = re.split(r'\s{2,}', line)
-                if len(parts) < 7:
-                    continue  # Không đủ dữ liệu
-                
+                if len(parts) < 6:
+                    continue  # Không đủ cột
+
                 try:
                     stt = int(parts[0])
                     mssv = parts[1]
-                    fullname = parts[2].strip()
-                    scores = [p for p in parts[3:] if re.match(r'^\d+\.\d\d$', p)]
-                    diem_chu = next((p for p in parts if re.match(r'^[ABCDF][+-]?$', p)), None)
+                    fullname = parts[2]
                     ho_dem, ten = split_name(fullname)
 
-                    # Khởi tạo row
+                    # Tìm điểm (chỉ lấy dạng float x.y), loại bỏ các "V", "--", "vắng thi", "Được dự thi"
+                    score_values = [p for p in parts if re.match(r"\d+\.\d{2}", p)]
+                    diem_chu = next((p for p in parts if re.match(r"^[ABCDF][+-]?$", p)), None)
+                    xep_loai = parts[-2] if len(parts) >= 10 else ""
+                    ghi_chu = parts[-1] if len(parts) >= 10 else ""
+
                     row = {
                         "STT": stt,
                         "Mã số sinh viên": mssv,
                         "Họ đệm": ho_dem,
                         "Tên": ten,
-                        "Điểm chữ": diem_chu
+                        "Điểm chữ": diem_chu,
+                        "Xếp loại": xep_loai,
+                        "Ghi chú": ghi_chu,
                     }
 
-                    # Gán điểm theo độ dài
-                    if len(scores) == 5:
-                        has_thuongky = True
-                        has_giua_ky = True
-                        has_thuc_hanh = True
+                    if len(score_values) == 5:
                         row.update({
-                            "Điểm giữa kỳ": float(scores[0]),
-                            "Điểm thường kỳ": float(scores[1]),
-                            "Điểm thực hành": float(scores[2]),
-                            "Điểm cuối kỳ": float(scores[3]),
-                            "Điểm TB môn học": float(scores[4]),
+                            "Điểm giữa kỳ": float(score_values[0]),
+                            "Điểm thường kỳ": float(score_values[1]),
+                            "Điểm thực hành": float(score_values[2]),
+                            "Điểm cuối kỳ": float(score_values[3]),
+                            "Điểm tổng kết": float(score_values[4]),
                         })
-                    elif len(scores) == 4:
-                        has_thuongky = True
-                        has_giua_ky = True
+                    elif len(score_values) == 4:
                         row.update({
-                            "Điểm giữa kỳ": float(scores[0]),
-                            "Điểm thường kỳ": float(scores[1]),
-                            "Điểm cuối kỳ": float(scores[2]),
-                            "Điểm TB môn học": float(scores[3]),
+                            "Điểm giữa kỳ": float(score_values[0]),
+                            "Điểm thường kỳ": float(score_values[1]),
+                            "Điểm cuối kỳ": float(score_values[2]),
+                            "Điểm tổng kết": float(score_values[3]),
                         })
-                    elif len(scores) == 3:
+                    elif len(score_values) == 3:
                         row.update({
-                            "Điểm cuối kỳ": float(scores[0]),
-                            "Điểm TB môn học": float(scores[1]),
+                            "Điểm cuối kỳ": float(score_values[0]),
+                            "Điểm tổng kết": float(score_values[1]),
                         })
-                    else:
-                        st.warning(f"Dòng không xác định được số điểm: {line}")
-                        continue
 
                     rows.append(row)
+
                 except Exception as e:
-                    st.warning(f"Lỗi xử lý dòng: {line}. Lỗi: {str(e)}")
+                    st.warning(f"Lỗi dòng: {line} — {str(e)}")
                     continue
 
     df = pd.DataFrame(rows)
-
-    # Drop optional columns if not detected
-    if not has_thuc_hanh and "Điểm thực hành" in df.columns:
-        df.drop(columns=["Điểm thực hành"], inplace=True)
-    if not has_giua_ky and "Điểm giữa kỳ" in df.columns:
-        df.drop(columns=["Điểm giữa kỳ"], inplace=True)
-    if not has_thuongky and "Điểm thường kỳ" in df.columns:
-        df.drop(columns=["Điểm thường kỳ"], inplace=True)
-    
     return df
 
 
