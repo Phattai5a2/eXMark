@@ -51,9 +51,6 @@ def extract_scores_from_pdf(file):
     """Extract score columns from PDF based on three conditions."""
     rows = []
     unmatched_lines = []
-    has_thuongky = False
-    has_giua_ky = False
-    has_thuc_hanh = False
     
     with pdfplumber.open(file) as pdf:
         for page_num, page in enumerate(pdf.pages):
@@ -77,9 +74,6 @@ def extract_scores_from_pdf(file):
                 # Try matching patterns in order of complexity
                 match = re.match(pattern_full, line)
                 if match:
-                    has_giua_ky = True
-                    has_thuongky = True
-                    has_thuc_hanh = True
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
@@ -107,8 +101,6 @@ def extract_scores_from_pdf(file):
                 
                 match = re.match(pattern_no_th, line)
                 if match:
-                    has_giua_ky = True
-                    has_thuongky = True
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
@@ -162,13 +154,11 @@ def extract_scores_from_pdf(file):
             f.write("\n".join(unmatched_lines))
     
     df = pd.DataFrame(rows)
-    # Drop columns if they were not detected
-    if not has_thuc_hanh and "Điểm thực hành" in df.columns:
-        df = df.drop(columns=["Điểm thực hành"])
-    if not has_giua_ky and "Điểm giữa kỳ" in df.columns:
-        df = df.drop(columns=["Điểm giữa kỳ"])
-    if not has_thuongky and "Điểm thường kỳ" in df.columns:
-        df = df.drop(columns=["Điểm thường kỳ"])
+    # Remove columns with no non-null values
+    score_columns = ["Điểm giữa kỳ", "Điểm thường kỳ", "Điểm thực hành"]
+    for col in score_columns:
+        if col in df.columns and df[col].isna().all():
+            df = df.drop(columns=[col])
     
     return df
 
