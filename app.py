@@ -48,25 +48,39 @@ def split_name(fullname):
         return ' '.join(parts[:-1]), parts[-1]
 
 def extract_scores_from_pdf(file):
-    """Extract only Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ from PDF."""
+    """Extract score columns from PDF, adapting to available columns."""
     rows = []
     unmatched_lines = []
+    has_thuongky = False
+    has_giua_ky = False
+    has_thuc_hanh = False
     
     with pdfplumber.open(file) as pdf:
         for page_num, page in enumerate(pdf.pages):
             text = page.extract_text()
             if not text:
-                st.warning(f"Không tìm thấy văn bản trên trang {page_num + 1}. Có thể cần OCR.")
+                # Log empty text to file instead of displaying warning
+                with open("unmatched_lines.txt", "a", encoding="utf-8") as f:
+                    f.write(f"Page {page_num + 1}: No text extracted\n")
                 continue
             
             lines = text.splitlines()
             for line in lines:
-                # Pattern: Capture STT, MSSV, Fullname, Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ
-                # Make 'V' separator optional
-                pattern = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+.*$"
+                # Pattern 1: Full columns (Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ)
+                pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+.*$"
                 
-                match = re.match(pattern, line)
+                # Pattern 2: No Điểm thực hành (Điểm giữa kỳ, Điểm thường kỳ, Điểm cuối kỳ)
+                pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+.*$"
+                
+                # Pattern 3: Only Điểm cuối kỳ
+                pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+(?:V\s+)?(\d+\.\d{1,2})\s+.*$"
+                
+                # Try matching patterns in order of complexity
+                match = re.match(pattern_full, line)
                 if match:
+                    has_giua_ky = True
+                    has_thuongky = True
+                    has_thuc_hanh = True
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
@@ -89,14 +103,74 @@ def extract_scores_from_pdf(file):
                             "Điểm cuối kỳ": diem_cuoi_ky
                         })
                     except Exception as e:
-                        st.warning(f"Lỗi xử lý dòng trên trang {page_num + 1}: {line}. Lỗi: {str(e)}")
-                        unmatched_lines.append(f"Page {page_num + 1}: {line}")
-                else:
-                    unmatched_lines.append(f"Page {page_num + 1}: {line}")
+                        unmatched_lines.append(f"Page {page_num + 1}: {line} (Error: {str(e)})")
+                    continue
+                
+                match = re.match(pattern_no_th, line)
+                if match:
+                    has_giua_ky = True
+                    has_thuongky = True
+                    try:
+                        stt = int(match.group(1))
+                        mssv = match.group(2)
+                        fullname = match.group(3).strip()
+                        diem_gk = float(match.group(4))  # Điểm giữa kỳ
+                        diem_thuongky = float(match.group(5))  # Điểm thường kỳ
+                        diem_cuoi_ky = float(match.group(6))  # Điểm cuối kỳ
+                        
+                        ho_dem, ten = split_name(fullname)
+                        
+                        rows.append({
+                            "STT": stt,
+                            "Mã số sinh viên": mssv,
+                            "Họ đệm": ho_dem,
+                            "Tên": ten,
+                            "Điểm giữa kỳ": diem_gk,
+                            "Điểm thường kỳ": diem_thuongky,
+                            "Điểm cuối kỳ": diem_cuoi_ky
+                        })
+                    except Exception as e:
+                        unmatched_lines.append(f"Page {page_num + 1}: {line} (Error: {str(e)})")
+                    continue
+                
+                match = re.match(pattern_minimal, line)
+                if match:
+                    try:
+                        stt = int(match.group(1))
+                        mssv = match.group(2)
+                        fullname = match.group(3).strip()
+                        diem_cuoi_ky = float(match.group(4))  # Điểm cuối kỳ
+                        
+                        ho_dem, ten = split_name(fullname)
+                        
+                        rows.append({
+                            "STT": stt,
+                            "Mã số sinh viên": mssv,
+                            "Họ đệm": ho_dem,
+                            "Tên": ten,
+                            "Điểm cuối kỳ": diem_cuoi_ky
+                        })
+                    except Exception as e:
+                        unmatched_lines.append(f"Page {page_num + 1}: {line} (Error: {str(e)})")
+                    continue
+                
+                # Log unmatched lines to file
+                unmatched_lines.append(f"Page {page_num + 1}: {line}")
     
-    # Log unmatched lines to Streamlit
+    # Save unmatched lines to file for debugging
+    if unmatched_lines:
+        with open("unmatched_lines.txt", "w", encoding="utf-8") as f:
+            f.write("\n".join(unmatched_lines))
     
     df = pd.DataFrame(rows)
+    # Drop columns if they were not detected
+    if not has_thuc_hanh and "Điểm thực hành" in df.columns:
+        df = df.drop(columns=["Điểm thực hành"])
+    if not has_giua_ky and "Điểm giữa kỳ" in df.columns:
+        df = df.drop(columns=["Điểm giữa kỳ"])
+    if not has_thuongky and "Điểm thường kỳ" in df.columns:
+        df = df.drop(columns=["Điểm thường kỳ"])
+    
     return df
 
 # File upload interface
@@ -124,6 +198,6 @@ if uploaded_file is not None:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         else:
-            st.error("⚠️ Không trích xuất được dữ liệu từ file PDF. Kiểm tra các dòng không khớp hoặc thử OCR.")
+            st.error("⚠️ Không trích xuất được dữ liệu từ file PDF. Vui lòng kiểm tra file hoặc định dạng.")
     except Exception as e:
         st.error(f"Lỗi xử lý file PDF: {str(e)}")
