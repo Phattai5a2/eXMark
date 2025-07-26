@@ -37,15 +37,14 @@ st.markdown("Tải lên file PDF chứa bảng điểm để trích xuất và l
 
 def split_name(fullname):
     """Split a full name into first/middle name (Họ đệm) and last name (Tên)."""
-    if not fullname:
-        return '', ''
+    if not fullname or not isinstance(fullname, str):
+        return "", ""
     parts = fullname.strip().split()
+    if not parts:
+        return "", ""
     if len(parts) == 1:
-        return '', parts[0]
-    elif len(parts) == 2:
-        return parts[0], parts[1]
-    else:
-        return ' '.join(parts[:-1]), parts[-1]
+        return "", parts[0]
+    return " ".join(parts[:-1]), parts[-1]
 
 def extract_scores_from_pdf(file):
     """Extract score columns from PDF based on three conditions."""
@@ -56,22 +55,26 @@ def extract_scores_from_pdf(file):
     has_thuc_hanh = False
     
     with pdfplumber.open(file) as pdf:
-        for page_num, page in enumerate(pdf.pages):
+        for page_num in range(len(pdf.pages)):
+            page = pdf.pages[page_num]
             text = page.extract_text()
             if not text:
-                with open("unmatched_lines.txt", "a", encoding="utf-8") as f:
-                    f.write(f"Page {page_num + 1}: No text extracted\n")
+                unmatched_lines.append(f"Page {page_num + 1}: No text extracted")
                 continue
             
-            lines = text.splitlines()
+            lines = text.split("\n")
             for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
                 # Pattern 1: All columns (Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành, Điểm cuối kỳ)
                 pattern_full = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+.*$"
                 
                 # Pattern 2: No Điểm thực hành (Điểm giữa kỳ, Điểm thường kỳ, Điểm cuối kỳ)
                 pattern_no_th = r"(\d+)\s+(\d+)\s+(.+?)\s+(\d+\.\d{1,2})\s+(\d+\.\d{1,2})\s+(?:V\s+)?(\d+\.\d{1,2})\s+.*$"
                 
-                # Pattern 3: Only Điểm cuối kỳ (no Điểm giữa kỳ, Điểm thường kỳ, Điểm thực hành)
+                # Pattern 3: Only Điểm cuối kỳ
                 pattern_minimal = r"(\d+)\s+(\d+)\s+(.+?)\s+(?:V\s+)?(\d+\.\d{1,2})\s+.*$"
                 
                 # Try matching patterns in order of complexity
@@ -106,7 +109,7 @@ def extract_scores_from_pdf(file):
                     continue
                 
                 match = re.match(pattern_no_th, line)
-                if match and not re.match(pattern_full, line):  # Ensure pattern_full doesn't match
+                if match and not re.match(pattern_full, line):
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
@@ -133,7 +136,7 @@ def extract_scores_from_pdf(file):
                     continue
                 
                 match = re.match(pattern_minimal, line)
-                if match and not (re.match(pattern_full, line) or re.match(pattern_no_th, line)):  # Ensure neither pattern_full nor pattern_no_th matches
+                if match and not (re.match(pattern_full, line) or re.match(pattern_no_th, line)):
                     try:
                         stt = int(match.group(1))
                         mssv = match.group(2)
@@ -153,7 +156,6 @@ def extract_scores_from_pdf(file):
                         unmatched_lines.append(f"Page {page_num + 1}: {line} (Error: {str(e)})")
                     continue
                 
-                # Log unmatched lines to file
                 unmatched_lines.append(f"Page {page_num + 1}: {line}")
     
     # Save unmatched lines to file for debugging
@@ -170,10 +172,10 @@ def extract_scores_from_pdf(file):
         columns.append("Điểm thường kỳ")
     if has_thuc_hanh:
         columns.append("Điểm thực hành")
-    columns.append("Điểm cuối kỳ")  # Always include Điểm cuối kỳ
+    columns.append("Điểm cuối kỳ")
     
     # Create DataFrame with only the relevant columns
-    df = pd.DataFrame(rows, columns=columns)
+    df = pd.DataFrame([row for row in rows if all(col in row for col in columns)], columns=columns)
     
     return df
 
